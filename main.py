@@ -90,3 +90,4 @@ class ShellEmulator:
 if __name__ == "__main__":
     shell = ShellEmulator()
     shell.run()
+
