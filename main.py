@@ -80,7 +80,7 @@ class ShellEmulator:
                 self.execute_command(args)
 
             except KeyboardInterrupt:
-                print()
+                print("")
                 continue
             except EOFError:
                 print()
@@ -90,4 +90,3 @@ class ShellEmulator:
 if __name__ == "__main__":
     shell = ShellEmulator()
     shell.run()
-
