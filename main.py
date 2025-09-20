@@ -14,8 +14,21 @@ class VirtualFileSystem:
     def _init_default_structure(self):
         self.root['/'] = {}
         self.root['/']['home'] = {}
-        self.root['/']['home'][os.getenv('USER', 'user')] = {}
-        self.current_path = f"/home/{os.getenv('USER', 'user')}"
+        # Используем реальное имя пользователя
+        self.root['/']['home'][self._get_real_username()] = {}
+        self.current_path = f"/home/{self._get_real_username()}"
+
+    def _get_real_username(self) -> str:
+        """Получает реальное имя пользователя системы"""
+        # Пытаемся получить имя пользователя различными способами
+        username = os.getenv('USER')
+        if not username:
+            username = os.getenv('USERNAME')
+        if not username:
+            username = os.getenv('LOGNAME')
+        if not username:
+            username = 'user'  # значение по умолчанию
+        return username
 
     def get_current_dir(self) -> Dict:
         path_parts = [p for p in self.current_path.split('/') if p]
@@ -28,7 +41,7 @@ class VirtualFileSystem:
 
     def change_directory(self, path: str) -> bool:
         if path == '~':
-            path = f"/home/{os.getenv('USER', 'user')}"
+            path = f"/home/{self._get_real_username()}"
         elif path == '.':
             return True
         elif path == '..':
@@ -64,7 +77,7 @@ class VirtualFileSystem:
         return sorted(current_dir.keys()) if isinstance(current_dir, dict) else []
 
     def get_prompt(self) -> str:
-        username = os.getenv('USER', 'user')
+        username = self._get_real_username()
         hostname = os.getenv('HOSTNAME', 'localhost')
         display_path = self.current_path
         home_path = f"/home/{username}"
@@ -94,48 +107,39 @@ class ShellEmulator:
             args = tokens[1:]
             return cmd, args
         except ValueError as e:
-            print(f"Ошибка парсинга: {e}", file=sys.stderr)
-            return '', []
+            raise ValueError(f"Ошибка парсинга: {e}")
 
     def execute_command(self, cmd: str, args: List[str]) -> bool:
         if not cmd:
             return True
 
         if cmd not in self.commands:
-            print(f"{cmd}: команда не найдена", file=sys.stderr)
-            return True
+            raise ValueError(f"{cmd}: команда не найдена")
 
-        try:
-            return self.commands[cmd](args)
-        except Exception as e:
-            print(f"Ошибка выполнения команды '{cmd}': {e}", file=sys.stderr)
-            return True
+        return self.commands[cmd](args)
 
     def _cmd_ls(self, args: List[str]) -> bool:
         files = self.vfs.list_directory()
         if args:
-            print(f"ls: неподдерживаемые аргументы: {' '.join(args)}", file=sys.stderr)
-            return True
+            raise ValueError(f"ls: неподдерживаемые аргументы: {' '.join(args)}")
         for f in files:
             print(f)
         return True
 
     def _cmd_cd(self, args: List[str]) -> bool:
         if len(args) > 1:
-            print("cd: слишком много аргументов", file=sys.stderr)
-            return True
+            raise ValueError("cd: слишком много аргументов")
         if len(args) == 0:
             success = self.vfs.change_directory('~')
         else:
             success = self.vfs.change_directory(args[0])
         if not success:
-            print(f"cd: нет такого каталога: {args[0] if args else ''}", file=sys.stderr)
+            raise ValueError(f"cd: нет такого каталога: {args[0] if args else ''}")
         return True
 
     def _cmd_exit(self, args: List[str]) -> bool:
         if args:
-            print(f"exit: неподдерживаемые аргументы: {' '.join(args)}", file=sys.stderr)
-            return True
+            raise ValueError(f"exit: неподдерживаемые аргументы: {' '.join(args)}")
         print("Выход...")
         return False
 
@@ -157,9 +161,15 @@ class ShellEmulator:
             if not line:
                 continue
 
-            cmd, args = self.parse_command(line)
-            if not self.execute_command(cmd, args):
-                break
+            try:
+                cmd, args = self.parse_command(line)
+                if not self.execute_command(cmd, args):
+                    break
+            except Exception as e:
+                print(f"{e}")
+                # После ошибки выводим новое приглашение на следующей строке
+                sys.stdout.flush()
+                continue
 
 
 if __name__ == "__main__":
