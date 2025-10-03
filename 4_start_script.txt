@@ -1,0 +1,17 @@
+# Тестовый скрипт для эмулятора с новыми командами
+pwd
+ls
+ls /home
+cat /etc/passwd
+cd /home
+pwd
+ls
+cd ..
+pwd
+ls /etc
+cat /etc/hosts
+rev "hello"
+cal
+cal 2023
+cal 10 2023
+exit
