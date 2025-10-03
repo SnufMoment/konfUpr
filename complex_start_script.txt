@@ -1,0 +1,13 @@
+# Тестовый скрипт для сложного VFS
+pwd
+ls
+ls /home
+cat /etc/passwd
+cd /home
+pwd
+ls
+cd ..
+pwd
+ls /var/log
+cat /var/log/app.log
+exit

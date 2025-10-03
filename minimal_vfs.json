@@ -1,0 +1,21 @@
+{
+  "/": {
+    "home": {
+      "user": {}
+    },
+    "file.txt": {
+      "content": "Hello, World!",
+      "encoding": "text"
+    },
+    "etc": {
+      "passwd": {
+        "content": "cm9vdDp4OjA6MDpyb290Oi9yb290Oi9iaW4vYmFzaAp1c2VyOng6MTAwMDoxMDAwOnVzZXI6L2hvbWUvdXNlcjovYmluL2Jhc2g=",
+        "encoding": "base64"
+      },
+      "hosts": {
+        "content": "MTI3LjAuMC4xIGxvY2FsaG9zdApbOjFdIGxvY2FsaG9zdA==",
+        "encoding": "base64"
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+# Тестовый скрипт для минимального VFS
+pwd
+ls
+ls /home
+cat /etc/passwd
+cd /home
+pwd
+ls
+cd ..
+pwd
+ls /etc
+cat /etc/hosts
+exit

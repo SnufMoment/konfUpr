@@ -1,6 +1,8 @@
 import os
 import sys
 import shlex
+import json
+import base64
 from typing import List, Dict, Optional
 
 
@@ -10,7 +12,33 @@ class VirtualFileSystem:
         self.root = {}
         self.current_path = '/'
         self.vfs_path = vfs_path
-        self._init_default_structure()
+        if vfs_path:
+            self._load_from_json(vfs_path)
+        else:
+            self._init_default_structure()
+
+    def _load_from_json(self, vfs_path: str):
+        with open(vfs_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        self.root = self._deserialize_node(data)
+        self.current_path = '/'
+
+    def _deserialize_node(self, node):
+        if not isinstance(node, dict):
+            return node
+        result = {}
+        for key, value in node.items():
+            if isinstance(value, dict) and 'content' in value and 'encoding' in value:
+                if value['encoding'] == 'base64':
+                    content = base64.b64decode(value['content']).decode('utf-8')
+                else:
+                    content = value['content']
+                result[key] = content
+            elif isinstance(value, dict):
+                result[key] = self._deserialize_node(value)
+            else:
+                result[key] = value
+        return result
 
     def _init_default_structure(self):
         self.root['/'] = {}
@@ -130,7 +158,6 @@ class ShellEmulator:
 
     def _cmd_ls(self, args: List[str]) -> bool:
         if args:
-
             if len(args) == 1:
                 path = args[0]
                 if path.startswith('/'):
@@ -138,8 +165,22 @@ class ShellEmulator:
                 else:
                     target_path = f"{self.vfs.current_path}/{path}" if self.vfs.current_path != '/' else f"/{path}"
 
+                parts = [p for p in target_path.split('/') if p]
+                current = self.vfs.root['/']
+                for part in parts:
+                    if part not in current:
+                        raise ValueError(
+                            f"ls: невозможно получить доступ к '{target_path}': нет такого файла или каталога")
+                    current = current[part]
 
-                pass
+                if not isinstance(current, dict):
+                    print(path)
+                    return True
+
+                files = sorted(current.keys())
+                for f in files:
+                    print(f)
+                return True
             elif len(args) > 1:
                 raise ValueError(f"ls: неподдерживаемые аргументы: {' '.join(args)}")
 
@@ -177,15 +218,18 @@ class ShellEmulator:
 
         path = args[0]
 
-        if path in ['/etc/passwd', '/etc/hosts']:
-            if path == '/etc/passwd':
-                print("root:x:0:0:root:/root:/bin/bash")
-                print("user:x:1000:1000:user:/home/user:/bin/bash")
-            elif path == '/etc/hosts':
-                print("127.0.0.1 localhost")
-                print("::1 localhost")
-        else:
-            raise ValueError(f"cat: {path}: Нет такого файла или каталога")
+        # Проверим, существует ли файл
+        parts = [p for p in path.split('/') if p]
+        current = self.vfs.root['/']
+        for part in parts:
+            if part not in current:
+                raise ValueError(f"cat: {path}: Нет такого файла или каталога")
+            current = current[part]
+
+        if isinstance(current, dict):
+            raise ValueError(f"cat: {path}: Это каталог, а не файл")
+
+        print(current)
         return True
 
     def run_script(self) -> bool:
@@ -201,7 +245,6 @@ class ShellEmulator:
                 line = line.strip()
                 if not line or line.startswith('#'):
                     continue
-
 
                 prompt = self.vfs.get_prompt()
                 print(f"{prompt} {line}")
@@ -225,18 +268,15 @@ class ShellEmulator:
         return True
 
     def run(self):
-
         print("Эмулятор оболочки UNIX (Этап 2)")
         print(f"VFS путь: {self.vfs_path or 'по умолчанию'}")
         print(f"Скрипт: {self.script_path or 'не задан'}")
         print("Введите 'exit' для выхода.\n")
 
-
         if self.script_path:
             success = self.run_script()
             if not success:
                 return
-
 
         while True:
             prompt = self.vfs.get_prompt()
@@ -266,16 +306,15 @@ def print_usage():
     """Выводит информацию об использовании"""
     print("Использование:")
     print("  python emulator.py [vfs_path] [script_path]")
-    print("  vfs_path   - путь к физическому расположению VFS (используется только для информации)")
+    print("  vfs_path   - путь к JSON-файлу с VFS")
     print("  script_path - путь к стартовому скрипту")
     print("\nПримеры:")
     print("  python emulator.py")
-    print("  python emulator.py /tmp/vfs_test")
-    print("  python emulator.py /tmp/vfs_test test_script1.txt")
+    print("  python emulator.py vfs.json")
+    print("  python emulator.py vfs.json start_script.txt")
 
 
 def main():
-
     vfs_path = None
     script_path = None
 
@@ -288,11 +327,9 @@ def main():
     if len(sys.argv) >= 3:
         script_path = sys.argv[2]
 
-
     emulator = ShellEmulator(vfs_path, script_path)
     emulator.run()
 
 
 if __name__ == "__main__":
     main()
-    
